@@ -12,7 +12,6 @@ PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
 
 proxies = { 'http': None, 'https': f"https://{PROXY_USERNAME}:{PROXY_PASSWORD}@zproxy.lum-superproxy.io:22225"}
 
-
 app = Flask(__name__)
 app.config["DEBUG"] = True
 app.config["ENV"] = "development"
@@ -24,7 +23,10 @@ def health():
 
 
 @app.route('/api/v1/refreshtoken', methods=['POST'])
-def refreshToken(clientId = request.args.get('clientId'), clientSecret = request.args.get('clientSecret'), refreshToken = request.args.get('refreshToken')):
+def refreshToken(clientId = None, clientSecret = None, refreshToken = None):
+    clientId = request.args.get('clientId')
+    clientSecret = request.args.get('clientSecret')
+    refreshToken = request.args.get('refreshToken')
     url = "https://discord.com/api/oauth2/token"
     params = {
         "client_id": clientId,
@@ -43,13 +45,23 @@ def refreshToken(clientId = request.args.get('clientId'), clientSecret = request
     
 
 @app.route('/api/v1/addmember', methods=['POST'])
-def addMember(guildId = request.args.get('guildId'), userId = request.args.get('userId'), botToken = request.args.get('botToken'), accessToken = request.args.get('accessToken'), roles = request.args.get('roles'), nick = request.args.get('nick')):
+def addMember(guildId = None, userId = None, botToken = None, accessToken = None, roles = None, nick = None):
+    guildId = request.args.get('guildId')
+    userId = request.args.get('userId')
+    botToken = request.args.get('botToken')
+    accessToken = request.args.get('accessToken')
+    roles = request.args.get('roles')
+    nick = request.args.get('nick')
     print(f"Adding {userId} to {guildId}")
 
-    if (roles != None): payload = dict(accessToken=accessToken, roles=roles)
-    elif (nick != None): payload = dict(accessToken=accessToken, nick=nick)
-    elif (roles != None and nick != None): payload = dict(accessToken=accessToken, roles=roles, nick=nick)
-    else: payload = dict(accessToken=accessToken)
+    if roles is not None and nick is not None:
+        payload = dict(accessToken=accessToken, roles=roles, nick=nick)
+    elif roles is not None:
+        payload = dict(accessToken=accessToken, roles=roles)
+    elif nick is not None:
+        payload = dict(accessToken=accessToken, nick=nick)
+    else:
+        payload = dict(accessToken=accessToken)
 
     url = f"https://discordapp.com/api/guilds/{guildId}/members/{userId}"
     headers = {
@@ -63,12 +75,25 @@ def addMember(guildId = request.args.get('guildId'), userId = request.args.get('
     response = make_response(response.text, response.status_code)
     return response
 
+
 @app.route('/api/v1/migrate', methods=['POST'])
-def migrate(guild = request.args.get('guildId'), roles = request.args.get('roles'), token = request.args.get('botToken'), delay = request.args.get('delay')):
+def migrate(guildId = None, roles = None, botToken = None, delay = None):
+    print("Migrating")
+    guildId = int(request.args.get('guildId'))
+    botToken = request.args.get('botToken')
+    delay = int(request.args.get('delay'))
+    roles = request.args.get('roles')
+
     data = request.get_json()
+    print(data)
+
     for user in data:
+        print(user)
         userId = user['id']
-        addMember(guildId=guild, userId=userId, botToken=token, accessToken=user['accessToken'], roles=roles)
+        accessToken=user['accessToken']
+        if user['nick']: nick = user['nick']
+        if user['roles']: roles = user['roles']
+        addMember(guildId, userId, botToken, accessToken, roles, nick)
         time.sleep(delay)
-        
+
     return jsonify(data)
